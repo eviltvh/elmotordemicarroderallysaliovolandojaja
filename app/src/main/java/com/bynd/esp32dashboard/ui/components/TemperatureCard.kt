@@ -9,13 +9,14 @@ import androidx.compose.material.icons.filled.Thermostat
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.bynd.esp32dashboard.ui.theme.AppColors
@@ -29,7 +30,7 @@ fun TemperatureCard(
     onToggle: (Boolean) -> Unit
 ) {
     val displayHistory: List<Double> = if (history.isNotEmpty()) history
-                                       else listOf(22.0, 23.5, 23.0, 26.1, 25.0, 26.8, 26.0)
+    else listOf(22.0, 23.5, 23.0, 26.1, 25.0, 26.8, 26.0)
     val displayCurrent = currentC ?: 26.0
     val labels = listOf("Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom")
     val mn = displayHistory.minOrNull() ?: 0.0
@@ -90,7 +91,7 @@ fun TemperatureCard(
 
 /**
  * Line chart hecho a mano con Canvas — sin librerías externas.
- * Smooth: pasos rectos entre puntos. Suficiente y rápido. -bynd
+ * Variables renombradas para no chocar con Paint.color dentro de apply { }. -bynd
  */
 @Composable
 fun LineChartCanvas(
@@ -98,9 +99,9 @@ fun LineChartCanvas(
     labels: List<String>,
     modifier: Modifier = Modifier
 ) {
-    val color = AppColors.Primary
-    val gridColor = AppColors.Divider
-    val labelColor = AppColors.TextSecondary.toArgb()
+    val lineColor: Color = AppColors.Primary
+    val gridColor: Color = AppColors.Divider
+    val labelArgb: Int = AppColors.TextSecondary.toArgb()
 
     Canvas(modifier = modifier) {
         if (data.isEmpty()) return@Canvas
@@ -114,13 +115,20 @@ fun LineChartCanvas(
 
         val mn = data.min()
         val mx = data.max()
-        val range = (mx - mn).takeIf { it > 0 } ?: 1.0
         val mnRound = (mn - 1).toInt().coerceAtLeast(0).toDouble()
         val mxRound = (mx + 1).toInt().toDouble()
         val rangeRound = (mxRound - mnRound).takeIf { it > 0 } ?: 1.0
 
         // Grid horizontal — 4 líneas
         val gridLines = 4
+        val nativeCanvasRef = drawContext.canvas.nativeCanvas
+        val yPaint = android.graphics.Paint().apply {
+            this.color = labelArgb
+            textSize = 22f
+            isAntiAlias = true
+            textAlign = android.graphics.Paint.Align.RIGHT
+        }
+
         for (i in 0..gridLines) {
             val y = padTop + h * i / gridLines
             drawLine(
@@ -130,17 +138,8 @@ fun LineChartCanvas(
                 strokeWidth = 1f,
                 pathEffect = PathEffect.dashPathEffect(floatArrayOf(4f, 6f))
             )
-            // Y-axis labels
             val v = mxRound - (rangeRound * i / gridLines)
-            drawContext.canvas.nativeCanvas.apply {
-                val paint = android.graphics.Paint().apply {
-                    color = labelColor
-                    textSize = 22f
-                    isAntiAlias = true
-                    textAlign = android.graphics.Paint.Align.RIGHT
-                }
-                drawText("${v.toInt()}", padLeft - 6f, y + 7f, paint)
-            }
+            nativeCanvasRef.drawText("${v.toInt()}", padLeft - 6f, y + 7f, yPaint)
         }
 
         val n = data.size
@@ -155,18 +154,18 @@ fun LineChartCanvas(
         // Línea
         for (i in 0 until points.size - 1) {
             drawLine(
-                color = color,
+                color = lineColor,
                 start = points[i],
                 end = points[i + 1],
                 strokeWidth = 4f,
-                cap = androidx.compose.ui.graphics.StrokeCap.Round
+                cap = StrokeCap.Round
             )
         }
-        // Puntos
+        // Puntos (anillo blanco con borde de color)
         for (p in points) {
-            drawCircle(color = androidx.compose.ui.graphics.Color.White, radius = 6f, center = p)
+            drawCircle(color = Color.White, radius = 6f, center = p)
             drawCircle(
-                color = color,
+                color = lineColor,
                 radius = 6f,
                 center = p,
                 style = Stroke(width = 2.5f)
@@ -174,25 +173,16 @@ fun LineChartCanvas(
         }
 
         // Labels eje X
+        val xPaint = android.graphics.Paint().apply {
+            this.color = labelArgb
+            textSize = 22f
+            isAntiAlias = true
+            textAlign = android.graphics.Paint.Align.CENTER
+        }
         labels.forEachIndexed { idx, lab ->
             if (idx >= n) return@forEachIndexed
             val x = padLeft + idx * stepX
-            drawContext.canvas.nativeCanvas.apply {
-                val paint = android.graphics.Paint().apply {
-                    color = labelColor
-                    textSize = 22f
-                    isAntiAlias = true
-                    textAlign = android.graphics.Paint.Align.CENTER
-                }
-                drawText(lab, x, size.height - 6f, paint)
-            }
+            nativeCanvasRef.drawText(lab, x, size.height - 6f, xPaint)
         }
     }
 }
-
-private fun Color.toArgb(): Int = android.graphics.Color.argb(
-    (alpha * 255).toInt(),
-    (red * 255).toInt(),
-    (green * 255).toInt(),
-    (blue * 255).toInt()
-)

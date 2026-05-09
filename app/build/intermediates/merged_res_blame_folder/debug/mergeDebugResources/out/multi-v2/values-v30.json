@@ -1,0 +1,19 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.bynd.esp32dashboard.app-mergeDebugResources-53:/values-v30/values-v30.xml",
+            "map": [
+                {
+                    "source": "C:\\Users\\TV\\.gradle\\caches\\9.0-milestone-1\\transforms\\2c6ee8fe2bc9e4a89eb76a3fdc351e75\\transformed\\material3-release\\res\\values-v30\\values-v30.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endColumns": "72",
+                        "endOffsets": "123"
+                    }
+                }
+            ]
+        }
+    ]
+}
